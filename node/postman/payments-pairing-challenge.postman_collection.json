@@ -1,0 +1,1304 @@
+{
+  "info": {
+    "name": "Payments Pairing Challenge (Node)",
+    "description": "payments-api (3001) and merchant-analytics (3002). Start with `docker compose up --build` in node/. Run the whole collection with the Collection Runner, or folder by folder.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "const d = new Date();",
+          "pm.collectionVariables.set('today', d.toISOString().slice(0, 10));",
+          "pm.collectionVariables.set('yesterday', new Date(d.getTime() - 86400000).toISOString().slice(0, 10));",
+          "if (!pm.collectionVariables.get('runId')) pm.collectionVariables.set('runId', Date.now().toString());"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "paymentsUrl",
+      "value": "http://localhost:3001"
+    },
+    {
+      "key": "analyticsUrl",
+      "value": "http://localhost:3002"
+    },
+    {
+      "key": "runId",
+      "value": ""
+    },
+    {
+      "key": "aliceId",
+      "value": ""
+    },
+    {
+      "key": "bobId",
+      "value": ""
+    },
+    {
+      "key": "merchantAccountId",
+      "value": ""
+    },
+    {
+      "key": "today",
+      "value": ""
+    },
+    {
+      "key": "yesterday",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "payments-api (3001)",
+      "description": "Accounts, debits, payments and transfers. Run the folders in order: each flow builds on the accounts created in \"1. Accounts\".\n\nAccount ids are suffixed with {{runId}} so the collection can be re-run without duplicate-key errors. \"Create account - Alice\" generates a new runId.",
+      "item": [
+        {
+          "name": "Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{paymentsUrl}}/health",
+              "host": [
+                "{{paymentsUrl}}"
+              ],
+              "path": [
+                "health"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('ok is true', () => pm.expect(pm.response.json().ok).to.eql(true));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1. Accounts",
+          "item": [
+            {
+              "name": "Create account - Alice (100)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{paymentsUrl}}/accounts",
+                  "host": [
+                    "{{paymentsUrl}}"
+                  ],
+                  "path": [
+                    "accounts"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"id\": \"acc-alice-{{runId}}\",\n  \"ownerName\": \"Alice\",\n  \"balance\": 100\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.collectionVariables.set('runId', Date.now().toString());"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status is 201', () => pm.response.to.have.status(201));",
+                      "const a = pm.response.json();",
+                      "pm.test('balance is 100', () => pm.expect(a.balance).to.eql(100));",
+                      "pm.collectionVariables.set('aliceId', a._id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Create account - Bob (50)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{paymentsUrl}}/accounts",
+                  "host": [
+                    "{{paymentsUrl}}"
+                  ],
+                  "path": [
+                    "accounts"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"id\": \"acc-bob-{{runId}}\",\n  \"ownerName\": \"Bob\",\n  \"balance\": 50\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status is 201', () => pm.response.to.have.status(201));",
+                      "pm.collectionVariables.set('bobId', pm.response.json()._id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Create account - Merchant (0)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{paymentsUrl}}/accounts",
+                  "host": [
+                    "{{paymentsUrl}}"
+                  ],
+                  "path": [
+                    "accounts"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"id\": \"acc-merchant-{{runId}}\",\n  \"ownerName\": \"Merchant\",\n  \"balance\": 0,\n  \"merchantId\": \"merch-{{runId}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status is 201', () => pm.response.to.have.status(201));",
+                      "pm.collectionVariables.set('merchantAccountId', pm.response.json()._id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Get account - Alice",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{paymentsUrl}}/accounts/{{aliceId}}",
+                  "host": [
+                    "{{paymentsUrl}}"
+                  ],
+                  "path": [
+                    "accounts",
+                    "{{aliceId}}"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                      "pm.test('owner is Alice', () => pm.expect(pm.response.json().ownerName).to.eql('Alice'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Get account - unknown (404)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{paymentsUrl}}/accounts/does-not-exist",
+                  "host": [
+                    "{{paymentsUrl}}"
+                  ],
+                  "path": [
+                    "accounts",
+                    "does-not-exist"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status is 404', () => pm.response.to.have.status(404));",
+                      "pm.test('error message', () => pm.expect(pm.response.json().error).to.eql('Account not found'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Create account - duplicate id (500, known issue #11)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{paymentsUrl}}/accounts",
+                  "host": [
+                    "{{paymentsUrl}}"
+                  ],
+                  "path": [
+                    "accounts"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"id\": \"{{aliceId}}\",\n  \"ownerName\": \"Alice again\",\n  \"balance\": 1\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "description": "Duplicate _id raises Mongo E11000, which the error middleware maps to 500. Should be 409."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status is 500', () => pm.response.to.have.status(500));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "2. Debit",
+          "item": [
+            {
+              "name": "Debit Alice 10 (100 -> 90)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{paymentsUrl}}/accounts/{{aliceId}}/debit",
+                  "host": [
+                    "{{paymentsUrl}}"
+                  ],
+                  "path": [
+                    "accounts",
+                    "{{aliceId}}",
+                    "debit"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"amount\": 10\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                      "pm.test('new balance is 90', () => pm.expect(pm.response.json().balance).to.eql(90));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Get Alice after debit",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{paymentsUrl}}/accounts/{{aliceId}}",
+                  "host": [
+                    "{{paymentsUrl}}"
+                  ],
+                  "path": [
+                    "accounts",
+                    "{{aliceId}}"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                      "pm.test('balance is 90', () => pm.expect(pm.response.json().balance).to.eql(90));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Debit - insufficient funds (500, known issue #2)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{paymentsUrl}}/accounts/{{aliceId}}/debit",
+                  "host": [
+                    "{{paymentsUrl}}"
+                  ],
+                  "path": [
+                    "accounts",
+                    "{{aliceId}}",
+                    "debit"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"amount\": 1000000\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "description": "Handler maps INSUFFICIENT_FUNDS to 500. Should be a 4xx."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status is 500', () => pm.response.to.have.status(500));",
+                      "pm.test('error message', () => pm.expect(pm.response.json().error).to.eql('Insufficient funds'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Debit - unknown account (404)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{paymentsUrl}}/accounts/does-not-exist/debit",
+                  "host": [
+                    "{{paymentsUrl}}"
+                  ],
+                  "path": [
+                    "accounts",
+                    "does-not-exist",
+                    "debit"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"amount\": 1\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status is 404', () => pm.response.to.have.status(404));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "3. Payments",
+          "item": [
+            {
+              "name": "Create payment",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{paymentsUrl}}/payments",
+                  "host": [
+                    "{{paymentsUrl}}"
+                  ],
+                  "path": [
+                    "payments"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"accountId\": \"{{aliceId}}\",\n  \"merchantId\": \"merch-{{runId}}\",\n  \"amount\": 20,\n  \"currency\": \"USD\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "description": "Body is stored as-is plus status \"charged\" and createdAt. Publishes PAYMENT_CREATED to payment-events. Does not debit any account."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status is 201', () => pm.response.to.have.status(201));",
+                      "const p = pm.response.json();",
+                      "pm.test('status is charged', () => pm.expect(p.status).to.eql('charged'));",
+                      "pm.test('has createdAt', () => pm.expect(p.createdAt).to.be.a('string'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Get Alice after payment (balance unchanged, known issue #9)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{paymentsUrl}}/accounts/{{aliceId}}",
+                  "host": [
+                    "{{paymentsUrl}}"
+                  ],
+                  "path": [
+                    "accounts",
+                    "{{aliceId}}"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                      "pm.test('balance still 90', () => pm.expect(pm.response.json().balance).to.eql(90));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "4. Transfer",
+          "item": [
+            {
+              "name": "Transfer Alice -> Bob 5",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{paymentsUrl}}/api/transfer",
+                  "host": [
+                    "{{paymentsUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "transfer"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"fromAccountId\": \"{{aliceId}}\",\n  \"toAccountId\": \"{{bobId}}\",\n  \"amount\": 5\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                      "const r = pm.response.json();",
+                      "pm.test('success', () => pm.expect(r.success).to.eql(true));",
+                      "pm.test('sender balance is 85', () => pm.expect(r.newBalance).to.eql(85));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Get Bob after transfer (55)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{paymentsUrl}}/accounts/{{bobId}}",
+                  "host": [
+                    "{{paymentsUrl}}"
+                  ],
+                  "path": [
+                    "accounts",
+                    "{{bobId}}"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                      "pm.test('balance is 55', () => pm.expect(pm.response.json().balance).to.eql(55));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Transfer - insufficient funds (400)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{paymentsUrl}}/api/transfer",
+                  "host": [
+                    "{{paymentsUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "transfer"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"fromAccountId\": \"{{bobId}}\",\n  \"toAccountId\": \"{{aliceId}}\",\n  \"amount\": 1000000\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status is 400', () => pm.response.to.have.status(400));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Transfer - unknown account (500, known issue #6)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{paymentsUrl}}/api/transfer",
+                  "host": [
+                    "{{paymentsUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "transfer"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"fromAccountId\": \"does-not-exist\",\n  \"toAccountId\": \"{{bobId}}\",\n  \"amount\": 1\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "description": "No null check on the accounts: crashes with \"Cannot read properties of null\". Should be 404."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status is 500', () => pm.response.to.have.status(500));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "5. Edge cases (known bugs)",
+          "description": "These document current buggy behaviour from CLAUDE.md \"Known issues\". Expected values describe what the code does today, not what it should do.",
+          "item": [
+            {
+              "name": "Debit negative amount credits the account (#3)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{paymentsUrl}}/accounts/{{bobId}}/debit",
+                  "host": [
+                    "{{paymentsUrl}}"
+                  ],
+                  "path": [
+                    "accounts",
+                    "{{bobId}}",
+                    "debit"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"amount\": -10\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                      "pm.test('balance went UP (bug)', () => pm.expect(pm.response.json().balance).to.eql(65));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Transfer Bob -> Bob 5 creates money (#5)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{paymentsUrl}}/api/transfer",
+                  "host": [
+                    "{{paymentsUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "transfer"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"fromAccountId\": \"{{bobId}}\",\n  \"toAccountId\": \"{{bobId}}\",\n  \"amount\": 5\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "description": "Bob has 65. First write sets 60, second write uses stale to.balance + amount = 70."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                      "pm.test('reported balance is 60', () => pm.expect(pm.response.json().newBalance).to.eql(60));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Get Bob after self-transfer (70, bug)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{paymentsUrl}}/accounts/{{bobId}}",
+                  "host": [
+                    "{{paymentsUrl}}"
+                  ],
+                  "path": [
+                    "accounts",
+                    "{{bobId}}"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                      "pm.test('balance grew to 70 (bug)', () => pm.expect(pm.response.json().balance).to.eql(70));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Debit missing amount (NaN) (#3)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{paymentsUrl}}/accounts/{{bobId}}/debit",
+                  "host": [
+                    "{{paymentsUrl}}"
+                  ],
+                  "path": [
+                    "accounts",
+                    "{{bobId}}",
+                    "debit"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('responds', () => pm.expect(pm.response.code).to.be.oneOf([200, 400, 500]));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "merchant-analytics (3002)",
+      "description": "Merchant transactions and daily totals. Uses merchant id merch-{{runId}} so totals only include the transactions created here. \"Seeded merchant\" request reads merch-1 created by seed.sh.",
+      "item": [
+        {
+          "name": "Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{analyticsUrl}}/health",
+              "host": [
+                "{{analyticsUrl}}"
+              ],
+              "path": [
+                "health"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('ok is true', () => pm.expect(pm.response.json().ok).to.eql(true));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1. Transactions",
+          "item": [
+            {
+              "name": "Create transaction - captured 100",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{analyticsUrl}}/transactions",
+                  "host": [
+                    "{{analyticsUrl}}"
+                  ],
+                  "path": [
+                    "transactions"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"merchantId\": \"merch-{{runId}}\",\n  \"amount\": 100,\n  \"status\": \"captured\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "if (!pm.collectionVariables.get('runId')) pm.collectionVariables.set('runId', Date.now().toString());"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status is 201', () => pm.response.to.have.status(201));",
+                      "const t = pm.response.json();",
+                      "pm.test('amount is a number', () => pm.expect(t.amount).to.eql(100));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Create transaction - failed 40",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{analyticsUrl}}/transactions",
+                  "host": [
+                    "{{analyticsUrl}}"
+                  ],
+                  "path": [
+                    "transactions"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"merchantId\": \"merch-{{runId}}\",\n  \"amount\": 40,\n  \"status\": \"failed\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status is 201', () => pm.response.to.have.status(201));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Create transaction - refunded 25",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{analyticsUrl}}/transactions",
+                  "host": [
+                    "{{analyticsUrl}}"
+                  ],
+                  "path": [
+                    "transactions"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"merchantId\": \"merch-{{runId}}\",\n  \"amount\": 25,\n  \"status\": \"refunded\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status is 201', () => pm.response.to.have.status(201));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Create transaction - explicit createdAt (yesterday)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{analyticsUrl}}/transactions",
+                  "host": [
+                    "{{analyticsUrl}}"
+                  ],
+                  "path": [
+                    "transactions"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"merchantId\": \"merch-{{runId}}\",\n  \"amount\": 999,\n  \"status\": \"captured\",\n  \"createdAt\": \"{{yesterday}}T12:00:00Z\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "description": "Not counted in today's totals."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status is 201', () => pm.response.to.have.status(201));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "2. Daily totals",
+          "item": [
+            {
+              "name": "Daily totals - today",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{analyticsUrl}}/merchants/merch-{{runId}}/daily-totals?date={{today}}",
+                  "host": [
+                    "{{analyticsUrl}}"
+                  ],
+                  "path": [
+                    "merchants",
+                    "merch-{{runId}}",
+                    "daily-totals"
+                  ],
+                  "query": [
+                    {
+                      "key": "date",
+                      "value": "{{today}}"
+                    }
+                  ]
+                },
+                "description": "total counts every status (known issue #14): 100 + 40 + 25 = 165."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                      "const r = pm.response.json();",
+                      "pm.test('count is 3', () => pm.expect(r.count).to.eql(3));",
+                      "pm.test('total sums all statuses (165)', () => pm.expect(r.total).to.eql(165));",
+                      "pm.test('byStatus', () => pm.expect(r.byStatus).to.eql({ captured: 1, failed: 1, refunded: 1 }));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Daily totals - yesterday",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{analyticsUrl}}/merchants/merch-{{runId}}/daily-totals?date={{yesterday}}",
+                  "host": [
+                    "{{analyticsUrl}}"
+                  ],
+                  "path": [
+                    "merchants",
+                    "merch-{{runId}}",
+                    "daily-totals"
+                  ],
+                  "query": [
+                    {
+                      "key": "date",
+                      "value": "{{yesterday}}"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                      "pm.test('total is 999', () => pm.expect(pm.response.json().total).to.eql(999));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Daily totals - seeded merchant (merch-1)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{analyticsUrl}}/merchants/merch-1/daily-totals?date={{today}}",
+                  "host": [
+                    "{{analyticsUrl}}"
+                  ],
+                  "path": [
+                    "merchants",
+                    "merch-1",
+                    "daily-totals"
+                  ],
+                  "query": [
+                    {
+                      "key": "date",
+                      "value": "{{today}}"
+                    }
+                  ]
+                },
+                "description": "Run ../seed.sh first. Loads every transaction into memory (known issue #13)."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status is 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Daily totals - invalid date (400)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{analyticsUrl}}/merchants/merch-1/daily-totals?date=30-10-2026",
+                  "host": [
+                    "{{analyticsUrl}}"
+                  ],
+                  "path": [
+                    "merchants",
+                    "merch-1",
+                    "daily-totals"
+                  ],
+                  "query": [
+                    {
+                      "key": "date",
+                      "value": "30-10-2026"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status is 400', () => pm.response.to.have.status(400));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Daily totals - missing date (400)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{analyticsUrl}}/merchants/merch-1/daily-totals",
+                  "host": [
+                    "{{analyticsUrl}}"
+                  ],
+                  "path": [
+                    "merchants",
+                    "merch-1",
+                    "daily-totals"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status is 400', () => pm.response.to.have.status(400));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+# Dev overrides, loaded automatically by `docker compose up`.
+# Mounts each service's src/ into its container and restarts the app on file changes.
+# nodemon (a dependency of each service) runs in polling mode (-L) because file events from Windows drives
+# don't reach Linux containers reliably.
+services:
+  payments-api:
+    volumes:
+      - ./services/payments-api/src:/app/src
+    command: npx nodemon -L --watch src --ignore "*.test.js" src/index.js
+
+  merchant-analytics:
+    volumes:
+      - ./services/merchant-analytics/src:/app/src
+    command: npx nodemon -L --watch src --ignore "*.test.js" src/index.js
